@@ -5,6 +5,9 @@ CLAUDE.md
 /docs/*
 /.planning/*
 test_videos
+videos
+archive.zip
+*.fdmdownload
 review
 cloud-storage
 # Hardhat files
@@ -63,3 +66,6 @@ docs/paper/*.toc
 docs/paper/*.bbl
 docs/paper/*.blg
 docs/paper/*.synctex.gz
+
+# Local dev service logs written by dev.sh
+.dev/
