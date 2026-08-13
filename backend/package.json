@@ -8,6 +8,10 @@
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
+  "//engines": "better-sqlite3@11 does not build against Node 26: V8 removed Object::GetPrototype and Context::GetIsolate, so `npm rebuild` cannot help. Raising this ceiling means bumping better-sqlite3 to 12.x.",
+  "engines": {
+    "node": ">=22 <26"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

@@ -18,8 +18,13 @@ A high d' means the hash can tell a tampered copy from a different video.
 A d' near zero means its "detection" carries no information about what changed.
 
 All three hashes are 64-bit and are computed over the SAME four frames K2A
-samples (20/40/60/80 per cent), aggregated identically as the mean of the
-per-frame Hamming distances, so the comparison is like for like.
+samples (20/40/60/80 per cent). The aggregation differs by construction and
+cannot be made identical: K2A is one popcount over a single 64-bit digest
+spanning all four frames (16 bits from each), whereas pHash and dHash are the
+mean of four independent 64-bit per-frame distances. Both are read against a
+64-bit ceiling, and d' is a ratio of a difference in means to a pooled standard
+deviation, so it is unchanged by any rescaling of the distance axis. d' is
+therefore the like-for-like comparison; the raw bit counts are not.
 
 Usage:
   ai-service/.venv/bin/python experiments/discriminability.py
@@ -60,7 +65,11 @@ def sample_frames(path):
 
 
 def pair_distance(a, b):
-    """Mean per-frame Hamming distance, matching the tamper-table aggregation."""
+    """Mean per-frame Hamming distance, for the pHash/dHash baselines.
+
+    K2A is not aggregated this way; see the module docstring. Only d' is
+    comparable across the two aggregations.
+    """
     d = [abs(x - y) for x, y in zip(a, b) if x is not None and y is not None]
     return sum(d) / len(d) if d else None
 
