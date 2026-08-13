@@ -1,34 +1,45 @@
 # AI Crime Detection Service Dependencies
+#
+# Versions are pinned to the environment in which experiments/results.csv was
+# last verified: Python 3.14.6, in which all 60 SHA-256 and all 60 K2A digests
+# reproduced byte for byte against a full re-download of UCF-Crime. The digests
+# were originally produced under Python 3.12 with opencv-python 4.9, so the
+# hash is not sensitive to the OpenCV major version; the pins are here so that
+# a reproduction attempt starts from a known-good set rather than resolving to
+# whatever is current.
 
 # Core ML
-torch>=2.0.0
-torchvision>=0.15.0
-ultralytics>=8.0.0
+torch==2.13.0
+torchvision==0.28.0
+ultralytics==8.4.117
 
 # Video Processing
-opencv-python>=4.8.0
-numpy>=1.24.0
-pillow>=10.0.0
+opencv-python==5.0.0.93
+numpy==2.5.2
+pillow==12.3.0
 
 # API Framework
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-websockets>=11.0
-python-multipart>=0.0.6
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+websockets==16.1.1
+python-multipart==0.0.32
 
 # Perceptual Hashing
-imagehash>=4.3.0
+ImageHash==4.3.2
 
 # Gemini VLM
-google-genai>=1.51.0
+google-genai==2.17.0
 
 # Utilities
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-python-dotenv>=1.0.0
-httpx>=0.24.0
-aiofiles>=23.0.0
+pydantic==2.13.4
+pydantic-settings==2.15.0
+python-dotenv==1.2.2
+httpx==0.28.1
+aiofiles==25.1.0
+
+# Experiments and figure generation
+matplotlib==3.11.1
 
 # Development
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
+pytest==9.1.1
+pytest-asyncio==1.4.0

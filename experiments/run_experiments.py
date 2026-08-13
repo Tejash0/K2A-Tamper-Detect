@@ -30,7 +30,6 @@ from app.utils.k2a_hash import (
 )
 
 # ── constants ─────────────────────────────────────────────────────────────────
-FFMPEG = "/usr/sbin/ffmpeg"
 TEST_VIDEOS = os.path.join(REPO_ROOT, "test_videos")
 RESULTS_CSV = os.path.join(REPO_ROOT, "experiments", "results.csv")
 CLIP_MANIFEST = os.path.join(REPO_ROOT, "experiments", "clip_manifest.csv")
@@ -209,11 +208,27 @@ def mean_frame_hash_distance(
 
 
 # ── tamper factories ──────────────────────────────────────────────────────────
+def _ffmpeg() -> str:
+    """Resolve the ffmpeg binary, honouring $FFMPEG before falling back to PATH.
+
+    Resolved per call rather than at import so that --help and the hash-only
+    paths still work on a machine without ffmpeg installed.
+    """
+    path = os.environ.get("FFMPEG") or shutil.which("ffmpeg")
+    if not path:
+        raise RuntimeError(
+            "ffmpeg not found. Install it and ensure it is on PATH, or set "
+            "FFMPEG to its full path. The tampered variants cannot be "
+            "generated without it."
+        )
+    return path
+
+
 def tamper_reencode(src: str, dst: str) -> bool:
     """Re-encode with CRF 28 (lossy, same content)."""
     r = subprocess.run(
         [
-            FFMPEG,
+            _ffmpeg(),
             "-y",
             "-i",
             src,
@@ -266,7 +281,7 @@ def tamper_frame_delete_x264(src: str, dst: str) -> bool:
     skip = int(total * 0.40)
     r = subprocess.run(
         [
-            FFMPEG,
+            _ffmpeg(),
             "-y",
             "-i",
             src,
@@ -291,7 +306,7 @@ def tamper_brightness(src: str, dst: str) -> bool:
     """Increase brightness with ffmpeg eq filter."""
     r = subprocess.run(
         [
-            FFMPEG,
+            _ffmpeg(),
             "-y",
             "-i",
             src,
@@ -316,7 +331,7 @@ def tamper_overlay_text(src: str, dst: str) -> bool:
     """Draw 'TAMPERED' text overlay."""
     r = subprocess.run(
         [
-            FFMPEG,
+            _ffmpeg(),
             "-y",
             "-i",
             src,
