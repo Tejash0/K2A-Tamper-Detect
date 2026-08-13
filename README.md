@@ -1,16 +1,34 @@
 # Blockchain-Based CCTV Evidence Verification System
 
-A tamper-proof surveillance verification system that stores cryptographic hashes of video footage on a local Ethereum blockchain. The system uses a **dual-hash strategy** — SHA-256 for exact integrity and K2A-Hash (a novel perceptual hash) for content-level tamper detection — anchored immutably in a Solidity smart contract.
+A tamper-proof surveillance verification system that stores cryptographic hashes of video footage on a local Ethereum blockchain. The system uses a **dual-hash strategy** - SHA-256 for exact integrity and K2A-Hash, a perceptual hash, for content-level change detection - anchored immutably in a Solidity smart contract.
 
-## Core Innovation: K2A-Hash
+## K2A-Hash
 
-**K2A-Hash** is a novel perceptual hashing algorithm combining:
+**K2A-Hash** is a training-free perceptual hash for video, built from:
 - Uniform 8×8 block grid diagonal pixel extraction
-- Directional bit compression (L→R vs R→L asymmetry)
-- Complement-based self-verification (`K XOR ~K = 0xFFFFFFFF`)
-- Temporal frame-index coupling for deepfake/frame-substitution detection
+- Bit compression against the absolute constant 128
+- Temporal extension across 4 sampled frames
 
-SHA-256 alone detects file corruption. K2A-Hash detects **semantic content changes** (deepfakes, frame substitution) that leave the file size identical but alter visual content.
+It produces **64 significant bits**, stored in a 256-bit `bytes32` field, so the maximum Hamming distance between any two K2A hashes is 64.
+
+SHA-256 detects any byte-level change to the file. K2A-Hash is intended to complement it by responding to changes in visual content rather than bytes, and it survives re-encoding: a transcoded copy of the same footage differs by 0.58 bits on average.
+
+### What it does and does not detect
+
+Measured over 60 UCF-Crime clips (`experiments/results.csv`):
+
+| Change | Mean K2A distance | Detected above the 8-bit threshold |
+|---|---|---|
+| Re-encoding (CRF 28) | 0.58 | No, by design |
+| Frame deletion (40%) | 0.67 | No |
+| Brightness (+0.3 EQ) | 27.73 | Yes, 57 of 60 clips |
+| Text overlay | 1.33 | No |
+
+**Known limitations, stated plainly:**
+- K2A responds to global intensity change. It does **not** currently detect localised edits, frame deletion, or overlays.
+- Deepfake and frame-substitution detection is **untested**. Do not rely on it for that.
+- Thresholding against an absolute constant collapses entropy on dark footage: set bits average 22.35 of 64, minimum 1. Across all 1770 unrelated-video pairs the mean distance is 28.68 bits with a minimum of 2, giving a **0.8 per cent false accept rate** at the 8-bit threshold.
+- A brightness attack (27.73) and an entirely unrelated video (28.68) are the same distribution, so the system reports a distance but does **not** classify tamper type.
 
 ## Architecture
 
@@ -89,6 +107,17 @@ PRIVATE_KEY=<hardhat test account private key>
 CORS_ORIGIN=http://localhost:5173
 ```
 
+> **`PRIVATE_KEY` must be the account that deployed the contract.**
+> `logEvidence()` is `onlyOwner`, and the owner is fixed at deployment to
+> whichever account `DEPLOYER_PRIVATE_KEY` (in the root `.env`, used by
+> `hardhat.config.ts`) signs with. If the two keys differ, every
+> `POST /api/record` reverts, the record is marked `failed` in SQLite, and the
+> reason appears only in the backend log.
+>
+> The owner is `immutable` and there is no transfer function, so rotating or
+> losing the operator key means redeploying the contract. Prior evidence stays
+> readable on the old address but no new records can be added to it.
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
@@ -132,10 +161,14 @@ Returns:
 ## Smart Contract
 
 `EvidenceLog.sol` stores per evidence entry:
-- `bytes32 videoHash` — SHA-256 of video file
-- `bytes32 perceptualHash` — K2A-Hash (content fingerprint)
-- `bytes32 reportHash` — SHA-256 of AI forensic report
+- `bytes32 videoHash` - SHA-256 of video file
+- `bytes32 perceptualHash` - K2A-Hash (content fingerprint)
+- `bytes32 reportHash` - SHA-256 of AI forensic report
 - `string cameraId`, `uint256 timestamp`, `address uploader`
+
+Write access is restricted to the deploying wallet by an `onlyOwner` modifier over an `immutable` owner address. Measured cost: 374,095 gas per record on average (222,264 to 388,607), 1,025,622 to deploy.
+
+Note that `timestamp` is caller-supplied. The trustworthy time anchor is `loggedAt`, which the contract sets from `block.timestamp`.
 
 ## Project Structure
 
@@ -154,12 +187,8 @@ blockchain-cctv/
 │       └── utils/
 │           └── k2a_hash.py
 ├── cloud-storage/      # Local clip storage (runtime)
-├── docs/               # Research paper and academic artifacts
-│   ├── paper/
-│   │   └── paper.tex
-│   ├── res/
-│   ├── references/
-│   └── K2A_NOVELTY_ANALYSIS.md
+├── docs/res/           # Generated paper figures (git-ignored, see experiments/)
+├── experiments/        # Evaluation harness, results.csv, clip manifest
 ├── test/               # Hardhat contract tests
 ├── hardhat.config.ts
 └── package.json

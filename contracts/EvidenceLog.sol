@@ -4,10 +4,24 @@ pragma solidity ^0.8.28;
 /**
  * @title EvidenceLog
  * @dev Stores cryptographic hashes of CCTV video footage for tamper-proof verification
- * @notice Dual-hash verification: SHA-256 (content integrity) + pHash (perceptual similarity)
- *         with on-chain forensic report hash for VLM-based analysis provenance
+ * @notice Dual-hash verification: SHA-256 (byte-level file integrity) + K2A-Hash
+ *         (perceptual, content-level similarity) with on-chain forensic report hash
+ *         for VLM-based analysis provenance
  */
 contract EvidenceLog {
+    /// @dev Deployer address; the only account permitted to log evidence.
+    ///      Immutable, so it occupies no storage slot and adds no SLOAD per write.
+    address public immutable owner;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Caller is not the owner");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
     struct Evidence {
         bytes32 videoHash;        // SHA-256 hash of the video file
         string cameraId;          // Unique identifier for the camera
@@ -16,7 +30,7 @@ contract EvidenceLog {
         uint256 blockNumber;      // Block number when evidence was logged
         uint256 loggedAt;         // Block timestamp when logged on-chain
         bytes32 reportHash;       // SHA-256 of forensic report JSON
-        bytes32 perceptualHash;   // pHash of video (perceptual hash)
+        bytes32 perceptualHash;   // K2A-Hash of video (perceptual hash)
         string aiModelVersion;    // e.g. "gemini-1.5-flash"
         uint256 confidenceScore;  // 0-10000 (0.00%-100.00%)
         string eventType;         // "violence", "theft", etc.
@@ -48,7 +62,7 @@ contract EvidenceLog {
      * @param _cameraId Identifier of the camera that recorded the footage
      * @param _timestamp Unix timestamp when the footage was hashed
      * @param _reportHash SHA-256 hash of the forensic report (bytes32(0) if not available)
-     * @param _perceptualHash Perceptual hash of video (bytes32(0) if not available)
+     * @param _perceptualHash K2A-Hash of video (bytes32(0) if not available)
      * @param _aiModelVersion AI model used for analysis (empty string if N/A)
      * @param _confidenceScore Detection confidence 0-10000
      * @param _eventType Type of detected event (empty string if N/A)
@@ -64,7 +78,7 @@ contract EvidenceLog {
         uint256 _confidenceScore,
         string calldata _eventType,
         string calldata _clipCloudURI
-    ) external {
+    ) external onlyOwner {
         require(_videoHash != bytes32(0), "Video hash cannot be empty");
         require(
             evidenceRecords[_videoHash].videoHash == bytes32(0),
